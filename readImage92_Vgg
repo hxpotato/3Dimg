@@ -1,0 +1,196 @@
+import tensorflow as tf
+import numpy as np
+import os
+import nibabel as nib
+import threading
+import tensorlayer as tl
+import matplotlib.pyplot as plt
+import scipy
+from tensorlayer.prepro import *
+import skimage.measure
+import sklearn as sk
+import sklearn.model_selection
+
+from sklearn.preprocessing import LabelBinarizer
+
+
+import time
+from keras.applications.imagenet_utils import preprocess_input, decode_predictions
+from keras.layers import Dropout, Flatten, Dense
+from keras.layers.convolutional import Convolution2D, MaxPooling2D
+from keras.models import Sequential
+from keras.preprocessing import image
+import numpy as np
+
+import cv2
+from keras.layers import Flatten
+
+
+from tensorflow.examples.tutorials.mnist import input_data
+from PIL import Image
+
+
+def show_img(ori_img):
+    plt.imshow(ori_img[:,:,25])
+    plt.show()
+
+def read_data(path):
+    image_data = nib.load(path).get_data()
+    return image_data
+
+
+
+def get_file_bypath(root_path):
+    path_lists = os.listdir(root_path)
+    for dir_file in path_lists:
+        dir_file_path = os.path.join(root_path,dir_file)
+
+        if os.path.isdir(dir_file_path):
+           get_file_bypath(dir_file_path)
+
+        else:
+           data = read_data(dir_file_path)
+           for i in range(imgLen):
+             dataSlice = data[:,:,i]
+             dataSlice = np.array(dataSlice)
+             dataSlice.resize((91,109,1), refcheck=False)
+             dataPath_list.append(dir_file_path)
+             dataImg_list.append(dataSlice)
+             dataPath= os.path.dirname(dir_file_path)
+             dataPath = dataPath.split('/')[-1]
+             data_label.append(dataPath)
+
+
+
+
+#train_img /= 255
+#train_img /= 255
+
+
+#
+# import pickle
+# f = open("le.pickle","wb")
+# f.write(pickle.dumps(lb))
+# f.close()
+
+from keras import models
+from keras import layers
+from keras.layers import Conv2D, MaxPooling2D, Dropout, Dense, Flatten
+from keras.models import Sequential
+
+#from traffic_network import Lenet
+import matplotlib.pylab as plt
+from keras.optimizers import Adam
+
+
+
+class Vgg:#
+    def neural(height,width,channel,classes):
+        input_shape = (height,width,channel)
+        print("开始建模CNN ...")
+        model = Sequential()
+        # Block 1, 2层
+        model.add(Convolution2D(64, 3, 3, activation='relu',
+                                border_mode='same', input_shape=(height, width,channel)))
+        model.add(Convolution2D(64, 3, 3, activation='relu', border_mode='same'))
+        model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+        # Block 2, 2层
+        model.add(Convolution2D(128, 3, 3, activation='relu', border_mode='same'))
+        model.add(Convolution2D(128, 3, 3, activation='relu', border_mode='same'))
+        model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+        # Block 3, 3层
+        model.add(Convolution2D(256, 3, 3, activation='relu', border_mode='same'))
+        model.add(Convolution2D(256, 3, 3, activation='relu', border_mode='same'))
+        model.add(Convolution2D(256, 3, 3, activation='relu', border_mode='same'))
+        model.add(Convolution2D(256, 3, 3, activation='relu', border_mode='same'))
+        model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+        # Block 4, 3层
+        model.add(Convolution2D(512, 3, 3, activation='relu', border_mode='same'))
+        model.add(Convolution2D(512, 3, 3, activation='relu', border_mode='same'))
+        model.add(Convolution2D(512, 3, 3, activation='relu', border_mode='same'))
+        model.add(Convolution2D(512, 3, 3, activation='relu', border_mode='same'))
+        model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+        # Block 5, 3层
+        model.add(Convolution2D(512, 3, 3, activation='relu', border_mode='same'))
+        model.add(Convolution2D(512, 3, 3, activation='relu', border_mode='same'))
+        model.add(Convolution2D(512, 3, 3, activation='relu', border_mode='same'))
+        model.add(Convolution2D(512, 3, 3, activation='relu', border_mode='same'))
+        model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+        # Classification block, 全连接3层
+        model.add(Flatten())
+        model.add(Dense(4096, activation='relu'))
+        model.add(Dropout(0.5))
+        model.add(Dense(4096, activation='relu'))
+        model.add(Dropout(0.5))
+        model.add(Dense(classes, activation='softmax'))
+
+        model.summary()
+
+        return model
+def train(model,train_x,train_y):
+
+    model.compile(loss="categorical_crossentropy",
+                  optimizer="Adam",metrics=["accuracy"])#配置
+        #model.fit(train_x,train_y,batch_size,epochs,validation_data=(test_x,test_y))
+    history = model.fit(train_x,train_y,batch_size = batch_size,
+                            epochs= epochs,verbose=1,validation_split=0.1)
+        #拟合，具体fit_generator请查阅其他文档,steps_per_epoch是每次迭代，需要迭代多少个batch_size，validation_data为test数据，直接做验证，不参与训练
+    model.save("../traffic_model.h5")#保存模型
+
+    plt.style.use("ggplot")#matplotlib的美化样式
+    plt.figure()
+    N = epochs
+    plt.plot(np.arange(0,N),history.history["loss"],label ="train_loss")#model的history有四个属性，loss,val_loss,acc,val_acc
+    plt.plot(np.arange(0,N),history.history["val_loss"],label="val_loss")
+    plt.plot(np.arange(0,N),history.history["acc"],label="train_acc")
+    plt.plot(np.arange(0,N),history.history["val_acc"],label="val_acc")
+    plt.title("loss and accuracy")
+    plt.xlabel("epoch")
+    plt.ylabel("loss/acc")
+    plt.legend(loc="best")
+    plt.savefig("../result.png")
+    plt.show()
+
+
+dataPath_list=[]
+data_label=[]
+dataImg_list=[]
+imgLen=91
+
+nib.Nifti1Header.quaternion_threshold= - np.finfo(np.float32).eps * 10 #relax limit
+#training_data_path = '/home/dl/Disk/data/AAL/825_Subject_AD/rmwp1ADNI_002_S_0619_MR_MPR-R__GradWarp__N3_Br_20070411125307309_S15145_I48616.nii'
+root_path = '/home/dl/Disk/data/825SubjectAAL/'
+preserving_ratio = 0.25 #filter out 2d images containing <25%
+
+
+
+#read image
+get_file_bypath(root_path)
+train_img, test_img, train_label, test_label = sk.model_selection.train_test_split(dataImg_list, data_label, test_size=0.33, random_state=42)
+
+train_img =np.array(train_img)
+test_img =np.array(test_img)
+#print(train_img.shape)
+
+lb = LabelBinarizer()
+train_label = lb.fit_transform(train_label) # one-hot
+test_label = lb.transform(test_label)
+
+channel = 1
+height = 91
+width = 109
+class_num = 2
+norm_size = 32  # 参数
+batch_size = 32
+epochs = 5
+
+model = Vgg.neural(height=height, width=width,channel=channel, classes=class_num)  #
+train(model,train_img,train_label)#训练
+
+model.output_shape
+
